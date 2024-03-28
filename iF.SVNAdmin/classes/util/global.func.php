@@ -1,7 +1,7 @@
 <?php
 function checkPHPVersion($minimumVersion)
 {
-    return version_compare(PHP_VERSION, $minimumVersion);
+  return version_compare(PHP_VERSION, $minimumVersion);
 }
 
 function exception_handler($exception)
