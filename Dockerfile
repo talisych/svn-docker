@@ -10,7 +10,7 @@ FROM smebberson/alpine-base:latest
 RUN apk add --no-cache apache2 apache2-ctl apache2-utils apache2-webdav mod_dav_svn &&\
 	apk add --no-cache subversion &&\
 	apk add --no-cache wget unzip php81 php81-apache2 php81-session php81-json php81-ldap &&\
-	apk add --no-cache php-xml &&\
+	apk add --no-cache php81-xml &&\
 	sed -i 's/;extension=ldap/extension=ldap/' /etc/php81/php.ini &&\
 	mkdir -p /run/apache2/ &&\
 	mkdir /home/svn/ &&\
