@@ -29,6 +29,7 @@ RUN chown -R apache:apache /etc/subversion /home/svn
 # Add WebDav and SVNADMIN configuration
 COPY dav_svn.conf /etc/apache2/conf.d/dav_svn.conf
 COPY svnadmin.conf /etc/apache2/conf.d/svnadmin.conf
+COPY php-svnadmin.ini /etc/php84/conf.d/99-svnadmin.ini
 
 # Set HOME in non /root folder
 ENV HOME=/home
