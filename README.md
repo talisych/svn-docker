@@ -45,11 +45,13 @@ docker exec svn-server chown -R apache:apache /home/svn /etc/subversion /opt/svn
 * SVNADMIN only understands MD5 (`$apr1$`) and SHA1 password hashes, so create users with `htpasswd -bm`, not `-B`.
 
 # SVNADMIN security notes
-iF.SVNAdmin has no CSRF protection (CVE-2019-15128) and reflected XSS in several pages. Until it is fixed in code, this image:
+The bundled iF.SVNAdmin comes from [talisych/iF.SVNAdmin](https://github.com/talisych/iF.SVNAdmin) branch `fix/xss-csrf` (commit `b222fe0`), based on upstream master 1.7.0 (unreleased) plus fixes for CSRF (CVE-2019-15128) and XSS. As an additional layer, this image:
 * sets the session cookie to `SameSite=Strict; HttpOnly`, so links or forms on other sites cannot act as a logged-in administrator (you may need to log in again when opening SVNADMIN from an external link);
 * sends `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy` headers on `/svnadmin`.
 
 Consider limiting `/svnadmin` to trusted networks as well.
+
+To update iF.SVNAdmin, replace the `iF.SVNAdmin` folder with `git archive <commit>` of the fork and update the commit above.
 
 # Alternative configuration via SVNADMIN
 the image provides a graphical ui using the [SVNADMIN](https://github.com/mfreiholz/iF.SVNAdmin) interface via `http://localhost/svnadmin`.

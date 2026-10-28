@@ -299,6 +299,12 @@ class Engine
 
 		$appTR->loadModule("actions");
 
+		// Logout is a plain link and harmless, all other actions change data.
+		if ($action != 'logout' && !csrf_require())
+		{
+			return;
+		}
+
 		if(!defined('ACTION_HANDLING'))
 		{
 			define('ACTION_HANDLING', true);
@@ -334,6 +340,21 @@ class Engine
 		{
 			// The authentication is turned off.
 			return true;
+		}
+
+		// Allow to authenticate by proxy-server.
+		if ($this->getConfig()->getValueAsBoolean("Common", "HttpProxyAuth"))
+		{
+			// use proxied configuration if available
+			if (isset($_SERVER["X-Forwarded-User"]))
+			{
+				$_SESSION["svnadmin_username"] = $_SERVER["X-Forwarded-User"];
+			}
+			// use proxied configuration if available
+			if (isset($_SERVER["REMOTE_USER"]))
+			{
+				$_SESSION["svnadmin_username"] = $_SERVER["REMOTE_USER"];
+			}
 		}
 
 		// At this place the authentication is ON.

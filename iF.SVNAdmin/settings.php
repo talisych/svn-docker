@@ -50,6 +50,16 @@ if (!$skip_auth)
 $appTR->loadModule("settings");
 
 ////////////////////////////////////////////////////////////////////////////////
+// Check for third party libraries.
+////////////////////////////////////////////////////////////////////////////////
+
+$found_adLDAP = false;
+if (defined("FOUND_LIBRARY_ADLDAP") && FOUND_LIBRARY_ADLDAP == TRUE)
+{
+	$found_adLDAP = true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Fetch request parameters.
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -78,12 +88,18 @@ $pLdapGroupSearchFilter = get_request_var("LdapGroupSearchFilter");
 $pLdapGroupAttributes = get_request_var("LdapGroupAttributes");
 $pLdapGroupsToUserAttribute = get_request_var("LdapGroupsToUserAttribute");
 $pLdapGroupsToUserAttributeValue = get_request_var("LdapGroupsToUserAttributeValue");
+$pAdDomainName = get_request_var("AdDomainName");
+$pAdDomainController = get_request_var("AdDomainController");
+$pAdBindUser = get_request_var("AdBindUser");
+$pAdBindPassword = get_request_var("AdBindPassword");
+$pAdGroupFilter = get_request_var("AdGroupFilter");
+$pAdGroupStrictMode = get_request_var("AdGroupStrictMode");
 
 ////////////////////////////////////////////////////////////////////////////////
 // Reset first start up value.
 ////////////////////////////////////////////////////////////////////////////////
 
-if (check_request_var("firststart"))
+if (check_request_var("firststart") && csrf_require())
 {
   $cfgEngine->setValue("Common", "FirstStart", 1);
   $cfgEngine->saveToFile();
@@ -96,7 +112,7 @@ if (check_request_var("firststart"))
 // Save values.
 ////////////////////////////////////////////////////////////////////////////////
 
-if (check_request_var("save"))
+if (check_request_var("save") && csrf_require())
 {
 	$cfgEngine->setValue("Engine:Providers", "UserViewProviderType", $pUserViewProviderType);
 	$cfgEngine->setValue("Engine:Providers", "UserEditProviderType", $pUserEditProviderType);
@@ -123,6 +139,15 @@ if (check_request_var("save"))
 	$cfgEngine->setValue("Groups:ldap", "Attributes", $pLdapGroupAttributes);
 	$cfgEngine->setValue("Groups:ldap", "GroupsToUserAttribute", $pLdapGroupsToUserAttribute);
 	$cfgEngine->setValue("Groups:ldap", "GroupsToUserAttributeValue", $pLdapGroupsToUserAttributeValue);
+	if ($found_adLDAP)
+	{
+		$cfgEngine->setValue('Ad', 'DomainName', $pAdDomainName);
+		$cfgEngine->setValue('Ad', 'DomainController', $pAdDomainController);
+		$cfgEngine->setValue('Ad', 'BindUser', $pAdBindUser);
+		$cfgEngine->setValue('Ad', 'BindPassword', $pAdBindPassword);
+		$cfgEngine->setValue('Groups:ad', 'Filter', $pAdGroupFilter);
+		$cfgEngine->setValue('Groups:ad', 'StrictMode', $pAdGroupStrictMode ? 'true' : 'false');
+	}
 	$cfgEngine->setValue("Common", "FirstStart", 0);
 
 	// Save configuration now.
@@ -148,7 +173,7 @@ if (check_request_var("save"))
 // Do the tests. (Comes in with AJAX)
 ////////////////////////////////////////////////////////////////////////////////
 
-if (check_request_var("dotest") && check_request_var("dotestsec"))
+if (check_request_var("dotest") && check_request_var("dotestsec") && csrf_check())
 {
 	// Turn off error reporting, we only want return JSON code.
 	// Update: Do NOT turn it off. We probably could use register_shutdown_function()
@@ -328,6 +353,49 @@ if (check_request_var("dotest") && check_request_var("dotestsec"))
 			}
 			break;
 
+        case "AdDomainControllerDetect":
+            if (IF_AbstractLdapConnector::isLdapExtensionEnabled() && $found_adLDAP)
+            {
+                $dcs = dns_get_record('_ldap._tcp.dc._msdcs.' . $pAdDomainName, DNS_SRV);
+                if (is_array($dcs)) {
+                    $msgOk = '';
+                    foreach($dcs as $dc) {
+                        $msgOk .= $dc['target'] . ',';
+                    }
+                    $msgOk = substr($msgOk, 0, -1);
+                }
+                if (!$dcs) {
+                    $msgErr = tr('No Domain Controller found.');
+                }
+            }
+            else
+            {
+                $msgErr = tr("PHP LDAP extension is not available.");
+            }
+            break;
+
+        case 'AdConnection':
+            if (IF_AbstractLdapConnector::isLdapExtensionEnabled() && $found_adLDAP)
+            {
+                try {
+                    $test = new adLDAP(array(
+                        'domain_controllers' => explode(',', $pAdDomainController),
+                        'admin_username' => $pAdBindUser,
+                        'admin_password' => $pAdBindPassword,
+                        'base_dn' => null,
+                        'account_suffix' => '',
+                    ));
+                    $msgOk = "OK, BaseDN is " . $test->findBaseDn();
+                } catch (Exception $e) {
+                    $msgErr = $e->getMessage();
+                }
+            }
+            else
+            {
+                $msgErr = tr("PHP LDAP extension is not available.");
+            }
+            break;
+
 		default:
 			$msgErr = "Invalid request.";
 	}
@@ -355,7 +423,7 @@ if (check_request_var("dotest") && check_request_var("dotestsec"))
 if (check_request_var("setadmin") || $show_setadmin)
 {
   // Assign the Administrator role.
-  if (check_request_var("saveadmin"))
+  if (check_request_var("saveadmin") && csrf_require())
   {
     $selusers = get_request_var("selected_users");
 
@@ -456,6 +524,7 @@ if (check_request_var("setadmin") || $show_setadmin)
   ProcessTemplate("settings/setadmin.html.php");
   exit(0);
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 // Form values.
 ////////////////////////////////////////////////////////////////////////////////
@@ -471,7 +540,11 @@ SetValue("SVNAuthFile", $svnAuthFile);
 SetValue("SVNAuthFileEx", $svnAuthFileEx);
 
 // UserViewProviderType
-$userViewProviderTypes = array(/*"off",*/ "passwd", "digest", "ldap");
+$userViewProviderTypes = array("off", "passwd", "digest", "ldap");
+if ($found_adLDAP)
+{
+	array_push($userViewProviderTypes, "ad");
+}
 array_unshift($userViewProviderTypes, $cfgEngine->getValue("Engine:Providers","UserViewProviderType"));
 SetValue("userViewProviderTypes", $userViewProviderTypes);
 
@@ -482,6 +555,10 @@ SetValue("userEditProviderTypes", $userEditProviderTypes);
 
 // GroupViewProviderType
 $groupViewProviderTypes = array("off", "svnauthfile", "ldap");
+if ($found_adLDAP)
+{
+	array_push($groupViewProviderTypes, "ad");
+}
 array_unshift($groupViewProviderTypes, $cfgEngine->getValue("Engine:Providers","GroupViewProviderType"));
 SetValue("groupViewProviderTypes", $groupViewProviderTypes);
 
@@ -584,6 +661,28 @@ SetValue("LdapGroupsToUserAttribute", $ldapGroupsToUserAttribute);
 SetValue("LdapGroupsToUserAttributeEx", $ldapGroupsToUserAttributeEx);
 SetValue("LdapGroupsToUserAttributeValue", $ldapGroupsToUserAttributeValue);
 SetValue("LdapGroupsToUserAttributeValueEx", $ldapGroupsToUserAttributeValueEx);
+
+// AD connection
+if (defined("FOUND_LIBRARY_ADLDAP") && FOUND_LIBRARY_ADLDAP == TRUE)
+{
+	$adDomainName = $cfg->getValue('Ad', 'DomainName');
+	$adBindUser   = $cfg->getValue('Ad', 'BindUser');
+	$adBindPassword = $cfg->getValue('Ad', 'BindPassword');
+	$adDomainController = $cfg->getValue('Ad', 'DomainController');
+	$adGroupFilter = $cfg->getValue('Groups:ad', 'Filter');
+	$adGroupStrictMode = $cfg->getValueAsBoolean('Groups:ad', 'StrictMode');
+	SetValue('AdDomainName', $adDomainName);
+	SetValue('AdBindUser', $adBindUser);
+	SetValue('AdBindPassword', $adBindPassword);
+	SetValue('AdDomainController', $adDomainController);
+	SetValue('AdGroupFilter', $adGroupFilter);
+	SetValue('AdGroupStrictMode', $adGroupStrictMode);
+	SetValue('FOUND_LIBRARY_ADLDAP', TRUE);
+}
+else
+{
+	SetValue('FOUND_LIBRARY_ADLDAP', FALSE);
+}
 
 // Process template.
 ProcessTemplate("settings/backend.html.php");

@@ -28,9 +28,9 @@ $(document).ready(function(){
 
 <?php HtmlFilterBox("userlist", 1); ?>
 
-<form action="userlist.php" method="POST">
+<form action="userlist.php" method="POST"><?php PrintCsrfField(); ?>
 	<table id="userlist" class="datatable">
-	
+
 	<thead>
 	<tr>
 	  <th width="20">
@@ -39,15 +39,15 @@ $(document).ready(function(){
 	    <?php } ?>
 	  </th>
 	  <th>
-	  	<?php Translate("User"); ?>
+	  	<?php Translate("Users"); ?>
 	  </th>
 	</tr>
 	</thead>
-	
+
 	<tfoot>
 	<tr>
 	  <td colspan="2">
-	
+
 	    <table class="datatableinline">
 	      <colgroup>
 	        <col width="50%">
@@ -65,7 +65,7 @@ $(document).ready(function(){
 	          <select name="selected_assign_role_name">
 	            <option value="">--- <?php Translate("Role"); ?> ---</option>
 	            <?php foreach (GetArrayValue("RoleList") as $r) { ?>
-	            <option value="<?php print($r->name); ?>"><?php Translate($r->name); ?></option>
+	            <option value="<?php print(h($r->name)); ?>"><?php Translate($r->name); ?></option>
 	            <?php } ?>
 	          </select>
 	          <input type="submit" name="assign_role" value="<?php Translate("Assign"); ?>" class="anbtn">
@@ -73,20 +73,20 @@ $(document).ready(function(){
 	        </td>
 	      </tr>
 	    </table>
-	
+
 	  </td>
 	</tr>
 	</tfoot>
-	
+
 	<tbody>
 		<?php foreach (GetArrayValue("UserList") as $u) { ?>
 		<tr>
 		  <td>
         <?php if (HasAccess(ACL_MOD_USER, ACL_ACTION_DELETE) || HasAccess(ACL_MOD_ROLE,	ACL_ACTION_ASSIGN)) { ?>
-        <input type="checkbox" name="selected_users[]" value="<?php print($u->name); ?>">
+        <input type="checkbox" name="selected_users[]" value="<?php print(h($u->name)); ?>">
         <?php } ?>
       </td>
-		  <td><a href="userview.php?username=<?php print($u->getEncodedName()); ?>"><?php print($u->name); ?></a></td>
+		  <td><a href="userview.php?username=<?php print(h($u->getEncodedName())); ?>"><?php print(h($u->getDisplayName())); ?></a></td>
 		</tr>
 		<?php } ?>
 	</tbody>

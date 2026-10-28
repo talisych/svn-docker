@@ -13,12 +13,12 @@ $(document).ready(function(){
 
 <?php HtmlFilterBox("grouplist", 1); ?>
 
-<form id="grouplist" action="grouplist.php" method="POST">
+<form id="grouplist" action="grouplist.php" method="POST"><?php PrintCsrfField(); ?>
 <table class="datatable">
 <thead>
 <tr>
   <th width="20"><?php if (IsProviderActive(PROVIDER_GROUP_EDIT)  && HasAccess(ACL_MOD_GROUP, ACL_ACTION_DELETE)) { ?><input type="checkbox" id="selectall"><?php } ?></th>
-  <th><?php Translate("Group"); ?></th>
+  <th><?php Translate("Groups"); ?></th>
 </tr>
 </thead>
 
@@ -43,12 +43,12 @@ $(document).ready(function(){
   </td>
 </tr>
 </tfoot>
-      
+
 <tbody>
 <?php foreach (GetArrayValue("GroupList") as $g) { ?>
 <tr>
-  <td><?php if (IsProviderActive(PROVIDER_GROUP_EDIT) && HasAccess(ACL_MOD_GROUP, ACL_ACTION_DELETE)) { ?><input type="checkbox" name="selected_groups[]" value="<?php print($g->name); ?>"><?php } ?></td>
-  <td><a href="groupview.php?groupname=<?php print($g->getEncodedName()); ?>"><?php print($g->name); ?></a></td>
+  <td><?php if (IsProviderActive(PROVIDER_GROUP_EDIT) && HasAccess(ACL_MOD_GROUP, ACL_ACTION_DELETE)) { ?><input type="checkbox" name="selected_groups[]" value="<?php print(h($g->name)); ?>"><?php } ?></td>
+  <td><a href="groupview.php?groupname=<?php print(h($g->getEncodedName())); ?>"><?php print(h($g->name)); ?></a></td>
 </tr>
 <?php } ?>
 </tbody>
