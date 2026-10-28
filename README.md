@@ -1,3 +1,7 @@
+> **This repository has moved to [talisych/svn-server](https://github.com/talisych/svn-server)** (Alpine 3.24, PHP 8.4, iF.SVNAdmin with XSS/CSRF fixes). This fork is archived.
+>
+> 本 repo 已移至 [talisych/svn-server](https://github.com/talisych/svn-server),此 fork 已封存。
+
 [![Docker Image](https://img.shields.io/badge/docker%20image-available-green.svg)](https://hub.docker.com/r/elleflorio/svn-server/)
 
 # DISCONTINUED
