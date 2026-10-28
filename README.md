@@ -8,24 +8,41 @@ Thank you to everyone that contributed! ❤️
 
 # Description
 Lightweight container providing an SVN server, based on **Alpine Linux** and S6 process management (see [here](https://github.com/smebberson/docker-alpine) for details).
-The access to the server is possible via **WebDav protocol** (http://), and via **custom protocol** (svn://).
+The access to the server is possible via **WebDav protocol** (http://). The svn:// protocol (svnserve, port 3690) has been removed, since it allowed anonymous read access.
 A complete tutorial on how to build this image, and how to run the container is available on [Medium](https://medium.com/@elle.florio/the-svn-dockerization-84032e11d88d#.bafh3otmh)
 
 # Running Commands
 To run the image, you can use the following command:
 ```
-docker run -d --name svn-server -p 80:80 -p 3690:3690 -v <hostpath>:/home/svn -v svn_config:/etc/subversion -v svnadmin_config:/opt/svnadmin/data elleflorio/svn-server
+docker run -d --name svn-server --restart unless-stopped -p 80:80 --log-opt max-size=50m --log-opt max-file=5 -v <hostpath>:/home/svn -v svn_config:/etc/subversion -v svnadmin_config:/opt/svnadmin/data svn-server
 ```
 `/home/svn` stores your repositories and can use either bind mount or named volume. `/etc/subversion` stores subversion configuration and `/opt/svnadmin/data` stores SVNADMIN configuration and both **MUST** use named volume.
 
 # Configuration
 **You need to setup username and password** for the access via WebDav protocol. You can use the following command from your host machine:
 ```
-docker exec -t svn-server htpasswd -b /etc/subversion/passwd <username> <password>
+docker exec -t svn-server htpasswd -bm /etc/subversion/passwd <username> <password>
 ```
 To verify that everything is up and running, open your browser and connect to `http://localhost/svn`. The system should ask you for the username and password, then it will show you an empty folder (no repos yet!).
-Check also that the custom protocol is working fine: go to your terminal and type `svn info svn://localhost:3690`. The system should connect to the server and tell you that is not able to find any repository.
 For further information on how to configure Subversion, please refer to the [official web page](https://subversion.apache.org/).
+
+# Logs
+All logs go to the container output, read them with `docker logs svn-server`. Use `--log-opt` (see the run command above) to rotate them.
+* `svn-op ...` lines: one line per SVN operation over http (checkout, commit, update, log, ...), with client IP, user and repository.
+* Other stdout lines: Apache access log for SVNADMIN (raw WebDAV requests under `/svn` are not logged here).
+* stderr: Apache error log, including authentication failures.
+
+```
+docker logs svn-server 2>/dev/null | grep '^svn-op'
+```
+
+# Upgrading from the s6 / PHP 8.1 based image
+* svnserve and port 3690 are gone, make sure every working copy uses an `http://` URL (`svn info | grep '^URL'`).
+* Repositories, `/etc/subversion` and SVNADMIN data must be owned by `apache`. Run once after upgrading:
+```
+docker exec svn-server chown -R apache:apache /home/svn /etc/subversion /opt/svnadmin/data
+```
+* SVNADMIN only understands MD5 (`$apr1$`) and SHA1 password hashes, so create users with `htpasswd -bm`, not `-B`.
 
 # Alternative configuration via SVNADMIN
 the image provides a graphical ui using the [SVNADMIN](https://github.com/mfreiholz/iF.SVNAdmin) interface via `http://localhost/svnadmin`.

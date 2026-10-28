@@ -1,6 +1,0 @@
-#!/command/with-contenv sh
-
-# From https://github.com/smebberson/docker-alpine/tree/master/alpine-apache
-
-# Run as apache so that repositories stay writable from both svn:// and http://
-exec s6-setuidgid apache /usr/bin/svnserve -d --foreground -r /home/svn --listen-port 3690;

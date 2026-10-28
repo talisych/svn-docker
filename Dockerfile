@@ -1,28 +1,16 @@
-# Alpine Linux with s6 service management
+# Alpine Linux running Apache in the foreground, with tini as PID 1
 FROM alpine:3.24
-
-ARG S6_OVERLAY_VERSION=v3.2.3.2
-
-# Add s6-overlay
-RUN apk add --no-cache --virtual .s6-deps curl xz &&\
-	case "$(apk --print-arch)" in \
-		x86_64) S6_ARCH=x86_64 ;; \
-		aarch64) S6_ARCH=aarch64 ;; \
-		armv7) S6_ARCH=armhf ;; \
-		*) echo "Unsupported arch: $(apk --print-arch)" && exit 1 ;; \
-	esac &&\
-	curl -fsSL https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz | tar Jxpf - -C / &&\
-	curl -fsSL https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz | tar Jxpf - -C / &&\
-	apk del .s6-deps
 
 	# Install Apache2 and other stuff needed to access svn via WebDav
 	# Install svn
 	# Installing utilities for SVNADMIN frontend
 	# Create required folders
 	# Create the authentication file for http access
-RUN apk add --no-cache apache2 apache2-ctl apache2-utils apache2-webdav mod_dav_svn &&\
+RUN apk add --no-cache tini &&\
+	apk add --no-cache apache2 apache2-ctl apache2-utils apache2-webdav mod_dav_svn &&\
 	apk add --no-cache subversion &&\
 	apk add --no-cache php84 php84-apache2 php84-session php84-ldap php84-xml &&\
+	sed -i -e 's#^ErrorLog .*#ErrorLog /dev/stderr#' -e 's#^\(\s*CustomLog\) logs/access.log combined#\1 /dev/stdout combined env=!svn_dav#' /etc/apache2/httpd.conf &&\
 	sed -i 's/^expose_php = On/expose_php = Off/' /etc/php84/php.ini &&\
 	mkdir -p /run/apache2/ &&\
 	mkdir /home/svn/ &&\
@@ -33,10 +21,6 @@ COPY iF.SVNAdmin /opt/svnadmin
 
 RUN ln -s /opt/svnadmin /var/www/localhost/htdocs/svnadmin &&\
 	chown -R apache:apache /opt/svnadmin/data
-
-# Add services configurations
-COPY apache/ /etc/services.d/apache/
-COPY subversion/ /etc/services.d/subversion/
 
 # Add SVNAuth file
 COPY subversion-access-control /etc/subversion/subversion-access-control
@@ -49,7 +33,13 @@ COPY svnadmin.conf /etc/apache2/conf.d/svnadmin.conf
 # Set HOME in non /root folder
 ENV HOME=/home
 
-# Expose ports for http and custom protocol access
-EXPOSE 80 443 3690
+# Expose ports for http access
+EXPOSE 80 443
 
-ENTRYPOINT ["/init"]
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# SIGWINCH makes Apache stop gracefully, letting in-flight commits finish
+STOPSIGNAL SIGWINCH
+
+ENTRYPOINT ["/sbin/tini", "--", "docker-entrypoint.sh"]
+CMD ["httpd", "-DFOREGROUND"]
